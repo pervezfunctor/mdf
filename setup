@@ -1,0 +1,211 @@
+#! /usr/bin/env bash
+
+export DOT_DIR=${USE_DOT_DIR:-$HOME/.df}
+export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+
+dir_exists() {
+  [[ -d "$1" ]]
+}
+
+file_exists() {
+  [[ -f "$1" ]]
+}
+
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+slog() {
+  printf '\r\033[2K  [ \033[00;32mINFO\033[0m ] %s\n' "$*"
+}
+
+fail() {
+  printf '\r\033[2K  [ \033[0;31mFAIL\033[0m ] %s\n' "$*"
+}
+
+warn() {
+  printf '\r\033[2K  [ \033[00;33mWARN\033[0m ] %s\n' "$*"
+}
+
+err_exit() {
+  fail "$*"
+  sleep 3
+  exit 1
+}
+
+is_desktop() {
+  [[ -n "$XDG_CURRENT_DESKTOP" ]] || [[ -n "$DESKTOP_SESSION" ]]
+}
+
+cmd_check() {
+  for cmd in "$@"; do
+    has_cmd "$cmd" || warn "$cmd not installed"
+  done
+}
+
+smd() {
+  [ -d "$1" ] && return 1
+
+  slog "Creating directory $1"
+  mkdir -p "$1" 2>/dev/null
+}
+
+fpi() {
+  for pkg in "$@"; do
+    slog "Installing flatpak package $pkg"
+    flatpak install -y --user flathub "$pkg"
+  done
+}
+
+pixi_install() {
+  has_cmd ~/.pixi/bin/pixi && return 0
+
+  slog "Installing pixi"
+  curl -fsSL https://pixi.sh/install.sh | bash
+}
+
+pi() {
+  for p in "$@"; do
+    pixi global install "$p"
+  done
+}
+
+pis() {
+  for p in "$@"; do
+    has_cmd "$p" || pixi global install "$p"
+  done
+}
+
+pixi_shell_slim_install() {
+  slog "Installing essential packages with pixi"
+
+  pis wget curl git unzip gh lazygit git-delta eza fzf zoxide
+  pis nvim tmux starship nvim luarocks nushell starship bat fd
+
+  has_cmd trash || pi trash-cli
+  has_cmd rg || pi ripgrep
+}
+
+dotfiles_install() {
+  slog "Cloning dotfiles to $DOT_DIR"
+
+  dir_exists "$DOT_DIR" || git clone https://github.com/pervezfunctor/df.git "${DOT_DIR}"
+
+  dir_exists "$DOT_DIR" || err_exit "Failed to clone dotfiles repository. Quitting."
+}
+
+bash_boxstall() {
+  grep -q 'source .*df/share/bashrc' ~/.bashrc && return 0
+
+  slog "Configuring bash"
+  {
+    echo "export DOT_DIR=\"$DOT_DIR\""
+    # shellcheck disable=SC2016
+    echo 'source "${DOT_DIR}/bashrc"'
+  } >>~/.bashrc
+}
+
+zsh_boxstall() {
+  grep -q 'source .*df/share/zshrc' ~/.zshrc && return 0
+  slog "Configuring bash"
+
+  {
+    echo "export DOT_DIR=\"$DOT_DIR\""
+    # shellcheck disable=SC2016
+    echo 'source "${DOT_DIR}/zshrc"'
+  } >>~/.bashrc
+}
+
+nvim_boxstall() {
+  dir_exists "$XDG_CONFIG_HOME"/nvim && return 0
+
+  slog "Configuring nvim with nvim kickstart"
+  git clone https://github.com/nvim-lua/kickstart.nvim.git "$XDG_CONFIG_HOME"/nvim
+  dir_exists "$XDG_CONFIG_HOME"/nvim || warn "nvim configuration failed"
+}
+
+tmux_boxstall() {
+  file_exists ~/.config/tmux/tmux.conf && return 0
+
+  ln -s "$DOT_DIR/tmux.conf" ~/.config/tmux/tmux.conf
+}
+
+jetbrains_nerd_font_install() {
+  file_exists ~/.local/share/fonts/JetBrainsMonoNLNerdFontPropo-Regular.ttf && return 0
+
+  slog "Installing JetBrains Mono Nerd Font"
+
+  smd ~/.local/share/fonts
+  trash /tmp/jetbrains-mono/tmp/jetbrains-mono.zip
+  wget -nv https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/JetBrainsMono.zip -O /tmp/jetbrains-mono.zip
+  unzip -qq -d /tmp/jetbrains-mono -o /tmp/jetbrains-mono.zip
+  cp /tmp/jetbrains-mono/*.ttf ~/.local/share/fonts
+  trash /tmp/jetbrains-mono/tmp/jetbrains-mono.zip
+}
+
+ptyxis_install() {
+  if has_cmd flatpak; then
+    slog "Adding flathub remote"
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --user
+  else
+    warn "flatpak not installed! skipping ptyxis installation."
+    return 1
+  fi
+
+  slog "Installing Ptyxis"
+  fpi app.devsuite.Ptyxis
+}
+
+docker_install() {
+  if ! has_cmd docker; then
+    slog "Installing docker..."
+
+    frm /tmp/get-docker.sh
+    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+    sudo sh /tmp/get-docker.sh
+    frm /tmp/get-docker.sh
+  fi
+
+  sudo groupadd docker
+  sudo usermod -aG docker "$USER"
+
+  sudo systemctl --now enable docker
+  sudo systemctl --now enable containerd
+}
+
+distrobox_install() {
+  has_cmd distrobox && return 0
+
+  if has_cmd podman || has_cmd docker; then
+    slog "Installing distrobox"
+    curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+  fi
+}
+
+main() {
+  has_cmd curl || err_exit "curl not found. Install curl and run this script again."
+
+  pixi_install
+  pixi_shell_slim_install
+
+  has_cmd git || err_exit "git not installed. Quitting."
+
+  dotfiles_install
+
+  # remove any lines you don't want
+
+  bash_boxstall
+  zsh_boxstall
+  tmux_boxstall
+  nvim_boxstall
+
+  docker_install
+
+  is_desktop && return 0
+
+  jetbrains_nerd_font_install
+  distrobox_install
+  ptyxis_install
+}
+
+main
