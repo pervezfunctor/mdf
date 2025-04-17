@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
-export DOT_DIR=${DOT_DIR:-$HOME/.df}
+export DOT_DIR=${DOT_DIR:-$HOME/.mdf}
 
 export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"
 

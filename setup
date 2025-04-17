@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-export DOT_DIR=${USE_DOT_DIR:-$HOME/.df}
+export DOT_DIR=${USE_DOT_DIR:-$HOME/.mdf}
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 
 dir_exists() {
@@ -89,13 +89,13 @@ pixi_shell_slim_install() {
 dotfiles_install() {
   slog "Cloning dotfiles to $DOT_DIR"
 
-  dir_exists "$DOT_DIR" || git clone https://github.com/pervezfunctor/df.git "${DOT_DIR}"
+  dir_exists "$DOT_DIR" || git clone https://github.com/pervezfunctor/mdf.git "${DOT_DIR}"
 
   dir_exists "$DOT_DIR" || err_exit "Failed to clone dotfiles repository. Quitting."
 }
 
 bash_boxstall() {
-  grep -q 'source .*df/share/bashrc' ~/.bashrc && return 0
+  grep -q 'source .*mdf/share/bashrc' ~/.bashrc && return 0
 
   slog "Configuring bash"
   {
@@ -106,7 +106,7 @@ bash_boxstall() {
 }
 
 zsh_boxstall() {
-  grep -q 'source .*df/share/zshrc' ~/.zshrc && return 0
+  grep -q 'source .*mdf/share/zshrc' ~/.zshrc && return 0
   slog "Configuring bash"
 
   {

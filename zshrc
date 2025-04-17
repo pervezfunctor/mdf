@@ -1,6 +1,6 @@
 # shellcheck disable=SC2148
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
-export DOT_DIR=${DOT_DIR:-$HOME/.df}
+export DOT_DIR=${DOT_DIR:-$HOME/.mdf}
 
 [[ -d "$DOT_DIR" ]] || return
 
