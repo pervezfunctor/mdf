@@ -33,6 +33,10 @@ err_exit() {
   exit 1
 }
 
+is_linux() {
+  [[ "$OSTYPE" == "linux-gnu" ]]
+}
+
 cmd_check() {
   for cmd in "$@"; do
     has_cmd "$cmd" || warn "$cmd not installed"
@@ -75,11 +79,13 @@ pis() {
 shell_tools_install() {
   slog "Installing essential packages with pixi"
 
-  pis wget curl git unzip gh lazygit git-delta eza fzf zoxide
-  pis nvim tmux starship nvim luarocks nushell starship bat fd
+  pis wget git unzip gh lazygit git-delta fzf
+  pis nvim tmux starship luarocks bat eza zoxide
 
   has_cmd trash || pi trash-cli
   has_cmd rg || pi ripgrep
+
+  cmd_check wget git unzip gh lazygit git-delta fzf nvim tmux starship
 }
 
 dotfiles_install() {
@@ -145,10 +151,6 @@ distrobox_install() {
   fi
 }
 
-is_linux() {
-  [[ "$OSTYPE" == "linux-gnu" ]]
-}
-
 main() {
   has_cmd curl || err_exit "curl not found. Install curl and run this script again."
   is_linux || err_exit "This script only works on Linux. Quitting."
@@ -159,13 +161,15 @@ main() {
   has_cmd git || err_exit "git not installed. Quitting."
 
   dotfiles_install
-
-  # remove any lines you don't want
   shell_install
-  tmux_install
-  nvim_install
-  distrobox_install
-  ptyxis_install
+
+  for arg in "$@"; do
+    if has_cmd "${arg}_install"; then
+      "${arg}_install"
+    else
+      warn "Unknown argument: $arg"
+    fi
+  done
 }
 
-main
+main "$@"
