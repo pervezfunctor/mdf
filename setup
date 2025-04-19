@@ -29,7 +29,7 @@ warn() {
 
 err_exit() {
   fail "$*"
-  sleep 3
+  sleep 2
   exit 1
 }
 
@@ -94,29 +94,13 @@ dotfiles_install() {
   dir_exists "$DOT_DIR" || err_exit "Failed to clone dotfiles repository. Quitting."
 }
 
-bash_boxstall() {
-  grep -q 'source .*mdf/share/bashrc' ~/.bashrc && return 0
-
-  slog "Configuring bash"
-  {
-    echo "export DOT_DIR=\"$DOT_DIR\""
-    # shellcheck disable=SC2016
-    echo 'source "${DOT_DIR}/bashrc"'
-  } >>~/.bashrc
+shell_install() {
+  slog "Configuring shell"
+  grep -q 'source .*mdf/shellrc' ~/.bashrc || echo 'source "${DOT_DIR}/shellrc"' >>~/.bashrc
+  grep -q 'source .*mdf/shellrc' ~/.zshrc || echo 'source "${DOT_DIR}/shellrc"' >>~/.zshrc
 }
 
-zsh_boxstall() {
-  grep -q 'source .*mdf/share/zshrc' ~/.zshrc && return 0
-  slog "Configuring bash"
-
-  {
-    echo "export DOT_DIR=\"$DOT_DIR\""
-    # shellcheck disable=SC2016
-    echo 'source "${DOT_DIR}/zshrc"'
-  } >>~/.bashrc
-}
-
-nvim_boxstall() {
+nvim_install() {
   dir_exists "$XDG_CONFIG_HOME"/nvim && return 0
 
   slog "Configuring nvim with nvim kickstart"
@@ -124,13 +108,13 @@ nvim_boxstall() {
   dir_exists "$XDG_CONFIG_HOME"/nvim || warn "nvim configuration failed"
 }
 
-tmux_boxstall() {
+tmux_install() {
   file_exists ~/.config/tmux/tmux.conf && return 0
 
   ln -s "$DOT_DIR/tmux.conf" ~/.config/tmux/tmux.conf
 }
 
-jetbrains_nerd_font_install() {
+font_install() {
   file_exists ~/.local/share/fonts/JetBrainsMonoNLNerdFontPropo-Regular.ttf && return 0
 
   slog "Installing JetBrains Mono Nerd Font"
@@ -194,17 +178,16 @@ main() {
 
   # remove any lines you don't want
 
-  bash_boxstall
-  zsh_boxstall
-  tmux_boxstall
-  nvim_boxstall
-
+  bash_install
+  zsh_install
+  tmux_install
+  nvim_install
   docker_install
 
   is_desktop && return 0
 
-  jetbrains_nerd_font_install
   distrobox_install
+  font_install
   ptyxis_install
 }
 

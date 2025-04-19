@@ -1,0 +1,63 @@
+#! /usr/bin/env bash
+
+export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+export DOT_DIR=${DOT_DIR:-$HOME/.mdf}
+
+export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"
+
+[[ -d "$DOT_DIR" ]] || return
+
+[[ $- == *i* ]] || return
+
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+current_shell=$(
+  ps -p "$$" -o comm=
+)
+
+source_if_exists() {
+  # shellcheck disable=SC1090
+  [[ -f "$1" ]] && source "$1"
+}
+
+if [[ $current_shell == "zsh" ]]; then
+  HISTFILE=~/.histfile
+  HISTSIZE=1000
+
+  bindkey -e
+  zstyle :compinstall filename "$HOME/.zshrc"
+
+  setopt AUTO_CD
+  setopt AUTO_PUSHD
+  setopt PUSHD_IGNORE_DUPS
+  setopt PUSHD_SILENT
+  setopt PUSHD_TO_HOME
+  setopt EXTENDED_GLOB
+  setopt AUTO_MENU # Show completion menu on a successive tab press.
+  setopt AUTO_LIST # Automatically list choices on ambiguous completion.
+  setopt prompt_subst
+
+  autoload bashcompinit && bashcompinit
+
+  zstyle ':completion:::::default' menu select
+
+  [[ -d $HOME/.zsh-syntax-highlighting ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git "$HOME/.zsh-syntax-highlighting"
+  source_if_exists "$HOME/.zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+  [[ -d $HOME/.zsh-autosuggestions ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$HOME/.zsh-autosuggestions"
+  source_if_exists "$HOME/.zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+  [[ -d $HOME/.alias-tips ]] || git clone --depth=1 https://github.com/djui/alias-tips.git "$HOME/.alias-tips"
+  source_if_exists "$HOME/.zsh-autosuggestions/alias-tips/alias-tips.plugin.zsh"
+fi
+
+has_cmd starship || return
+eval "$(starship init "${current_shell}")"
+
+has_cmd ~/.local/bin/mise && eval "$(~/.local/bin/mise activate "${current_shell}")"
+has_cmd zoxide && eval "$(zoxide init "${current_shell}")"
+# shellcheck disable=SC1090
+has_cmd fzf && source <(fzf --"${current_shell}")
+has_cmd ~/.pixi/bin/pixi && eval "$(~/.pixi/bin/pixi completion --shell "${current_shell}")"
