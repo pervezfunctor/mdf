@@ -33,6 +33,15 @@ err_exit() {
   exit 1
 }
 
+is_wsl() {
+  [ -e /proc/version ] && grep -qi microsoft /proc/version && return 1
+}
+
+is_container() {
+  [[ "$CONTAINER_ID" != "" ]] && return 1
+  is_wsl
+}
+
 is_desktop() {
   [[ -n "$XDG_CURRENT_DESKTOP" ]] || [[ -n "$DESKTOP_SESSION" ]]
 }
@@ -76,7 +85,7 @@ pis() {
   done
 }
 
-pixi_shell_slim_install() {
+shell_tools_install() {
   slog "Installing essential packages with pixi"
 
   pis wget curl git unzip gh lazygit git-delta eza fzf zoxide
@@ -166,11 +175,16 @@ distrobox_install() {
   fi
 }
 
+is_linux() {
+  [[ "$OSTYPE" == "linux-gnu" ]]
+}
+
 main() {
   has_cmd curl || err_exit "curl not found. Install curl and run this script again."
+  is_linux || err_exit "This script only works on Linux. Quitting."
 
   pixi_install
-  pixi_shell_slim_install
+  shell_tools_install
 
   has_cmd git || err_exit "git not installed. Quitting."
 
@@ -178,15 +192,17 @@ main() {
 
   # remove any lines you don't want
 
-  bash_install
-  zsh_install
+  shell_install
   tmux_install
   nvim_install
+
+  is_container && return 0
+
   docker_install
+  distrobox_install
 
   is_desktop && return 0
 
-  distrobox_install
   font_install
   ptyxis_install
 }
