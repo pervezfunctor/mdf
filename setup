@@ -33,19 +33,6 @@ err_exit() {
   exit 1
 }
 
-is_wsl() {
-  [ -e /proc/version ] && grep -qi microsoft /proc/version && return 1
-}
-
-is_container() {
-  [[ "$CONTAINER_ID" != "" ]] && return 1
-  is_wsl
-}
-
-is_desktop() {
-  [[ -n "$XDG_CURRENT_DESKTOP" ]] || [[ -n "$DESKTOP_SESSION" ]]
-}
-
 cmd_check() {
   for cmd in "$@"; do
     has_cmd "$cmd" || warn "$cmd not installed"
@@ -134,36 +121,19 @@ font_install() {
   unzip -qq -d /tmp/jetbrains-mono -o /tmp/jetbrains-mono.zip
   cp /tmp/jetbrains-mono/*.ttf ~/.local/share/fonts
   trash /tmp/jetbrains-mono/tmp/jetbrains-mono.zip
+  fc-cache -f -v
 }
 
 ptyxis_install() {
-  if has_cmd flatpak; then
-    slog "Adding flathub remote"
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --user
-  else
-    warn "flatpak not installed! skipping ptyxis installation."
-    return 1
-  fi
+  has_cmd flatpak || return 1
+
+  slog "Adding flathub remote"
+  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --user
 
   slog "Installing Ptyxis"
   fpi app.devsuite.Ptyxis
-}
 
-docker_install() {
-  if ! has_cmd docker; then
-    slog "Installing docker..."
-
-    frm /tmp/get-docker.sh
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-    sudo sh /tmp/get-docker.sh
-    frm /tmp/get-docker.sh
-  fi
-
-  sudo groupadd docker
-  sudo usermod -aG docker "$USER"
-
-  sudo systemctl --now enable docker
-  sudo systemctl --now enable containerd
+  font_install
 }
 
 distrobox_install() {
@@ -191,19 +161,10 @@ main() {
   dotfiles_install
 
   # remove any lines you don't want
-
   shell_install
   tmux_install
   nvim_install
-
-  is_container && return 0
-
-  docker_install
   distrobox_install
-
-  is_desktop && return 0
-
-  font_install
   ptyxis_install
 }
 

@@ -1,6 +1,6 @@
 # Linux Setup
 
-Setup your linux vm or container with the following command
+Setup your linux vm or container
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pervezfunctor/mdf/main/setup > setup
@@ -14,7 +14,9 @@ Change your default shell to `zsh`
 chsh -s $(which zsh)
 ```
 
-Use `distrobox` for development.
+Ptyxis terminal will be installed, if `flatpak` command is available. Set your preferred terminal's font to `JetBrainsMono Nerd Font Mono`.
+
+Use `distrobox` for development. `Ptyxis` has great support for distrobox.
 
 ```bash
 distrobox create
@@ -23,15 +25,6 @@ curl -fsSL https://raw.githubusercontent.com/pervezfunctor/mdf/main/setup > setu
 bash setup
 ```
 
-If you are in a virtual machine, docker should be setup. After reboot check if it's working
+Use tmux for terminal multiplexing. Default prefix is `C-a`. Look at `tmux.conf` for keybindings.
 
-```bash
-docker run hello-world
-```
-
-Ptyxis terminal will be installed, if `flatpak` command is available. Set terminal font to `JetBrainsMono Nerd Font Mono`
-
-
-Use tmux for terminal multiplexing. Default prefix is `C-a`
-
-`Neovim` configuration used is from [Nvim Kickstart](https://github.com/nvim-lua/kickstart.nvim). You could also use [LazyVim](https://www.lazyvim.org/) or [Astronvim](https://astronvim.com/)]
+`Neovim` configuration  from [Nvim Kickstart](https://github.com/nvim-lua/kickstart.nvim) is used. You could use [LazyVim](https://www.lazyvim.org/) or [Astronvim](https://astronvim.com/)] instead. Follow the instructions on their websites.
