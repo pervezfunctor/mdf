@@ -1,0 +1,90 @@
+#! /usr/bin/env bash
+
+export MDF_DIR=$HOME/.mdf
+export XDG_CONFIG_HOME=$HOME/.config
+
+export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"
+
+[[ -d "$MDF_DIR" ]] || return
+
+[[ $- == *i* ]] || return
+
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+current_shell=$(
+  ps -p "$$" -o comm=
+)
+
+source_if_exists() {
+  # shellcheck disable=SC1090
+  [[ -f "$1" ]] && source "$1"
+}
+
+if [[ $current_shell == "zsh" ]]; then
+  HISTFILE=~/.histfile
+  HISTSIZE=1000
+  # shellcheck disable=SC2034
+  SAVEHIST=1000
+
+  bindkey -e
+  bindkey "^[[A" history-substring-search-up
+  bindkey "^[[B" history-substring-search-down
+  bindkey '^P' up-line-or-search
+  bindkey '^N' down-line-or-search
+  bindkey '^A' beginning-of-line
+  bindkey '^E' end-of-line
+
+  setopt AUTO_CD
+  setopt AUTO_PUSHD
+  setopt PUSHD_IGNORE_DUPS
+  setopt PUSHD_SILENT
+  setopt PUSHD_TO_HOME
+  setopt EXTENDED_GLOB
+  setopt AUTO_MENU
+  setopt AUTO_LIST
+  setopt prompt_subst
+  setopt COMPLETE_IN_WORD
+  setopt ALWAYS_TO_END
+  setopt AUTO_LIST
+  unsetopt MENU_COMPLETE
+
+  # Initialize completion system early
+  autoload -Uz compinit
+  compinit
+
+  zstyle :compinstall filename "$HOME/.zshrc"
+  zstyle ':completion:*' menu select
+  zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}' 'r:|[._-]=**'
+  zstyle ':completion:*' use-cache on
+  zstyle ':completion:*' cache-path ~/.cache/zsh/completion
+  zstyle ':completion:*' verbose yes
+  zstyle ':completion:*' squeeze-slashes true
+  zstyle ':completion:*:descriptions' format '[%d]'
+  zstyle ':completion:*:*:*:*:default' list-prompt '%S%M matches%s'
+  zstyle ':completion:*' group-name ''
+
+  autoload bashcompinit && bashcompinit
+
+  [[ -d $XDG_CONFIG_HOME/zsh/zsh-syntax-highlighting ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git "$XDG_CONFIG_HOME/zsh/zsh-syntax-highlighting"
+  source_if_exists "$XDG_CONFIG_HOME/zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+
+  [[ -d $XDG_CONFIG_HOME/zsh/zsh-autosuggestions ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$XDG_CONFIG_HOME/zsh/zsh-autosuggestions"
+  source_if_exists "$XDG_CONFIG_HOME/zsh/zsh-autosuggestions/zsh-autosuggestions.zsh"
+
+  [[ -d $XDG_CONFIG_HOME/zsh/alias-tips ]] || git clone --depth=1 https://github.com/djui/alias-tips.git "$XDG_CONFIG_HOME/zsh/alias-tips"
+  source_if_exists "$XDG_CONFIG_HOME/zsh/zsh-autosuggestions/alias-tips/alias-tips.plugin.zsh"
+
+  [[ -d $XDG_CONFIG_HOME/zsh/zsh-history-substring-search ]] || git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search.git "$XDG_CONFIG_HOME/zsh/zsh-history-substring-search"
+  source_if_exists "$XDG_CONFIG_HOME/zsh/zsh-history-substring-search/zsh-history-substring-search.zsh"
+fi
+
+has_cmd starship || return
+eval "$(starship init "${current_shell}")"
+
+has_cmd ~/.local/bin/mise && eval "$(~/.local/bin/mise activate "${current_shell}")"
+has_cmd zoxide && eval "$(zoxide init "${current_shell}")"
+# shellcheck disable=SC1090
+has_cmd fzf && source <(fzf --"${current_shell}")
+has_cmd ~/.pixi/bin/pixi && eval "$(~/.pixi/bin/pixi completion --shell "${current_shell}")"

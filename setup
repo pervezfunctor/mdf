@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
-export DOT_DIR=${USE_DOT_DIR:-$HOME/.mdf}
-export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+export MDF_DIR=$HOME/.mdf
+export XDG_CONFIG_HOME=$HOME/.config
 
 dir_exists() {
   [[ -d "$1" ]]
@@ -29,12 +29,12 @@ warn() {
 
 err_exit() {
   fail "$*"
-  sleep 3
+  sleep 2
   exit 1
 }
 
-is_desktop() {
-  [[ -n "$XDG_CURRENT_DESKTOP" ]] || [[ -n "$DESKTOP_SESSION" ]]
+is_linux() {
+  [[ "$OSTYPE" == "linux-gnu" ]]
 }
 
 cmd_check() {
@@ -62,75 +62,77 @@ pixi_install() {
 
   slog "Installing pixi"
   curl -fsSL https://pixi.sh/install.sh | bash
+  has_cmd ~/.pixi/bin/pixi || warn "pixi not installed"
 }
 
 pi() {
-  for p in "$@"; do
-    pixi global install "$p"
-  done
+  pixi global install --quiet "$@"
 }
 
 pis() {
+  local pkgs=()
+
   for p in "$@"; do
-    has_cmd "$p" || pixi global install "$p"
+    has_cmd "$p" || pkgs+=("$p")
   done
+
+  pixi global install --quiet "${pkgs[@]}"
 }
 
-pixi_shell_slim_install() {
+shell_tools_install() {
   slog "Installing essential packages with pixi"
 
-  pis wget curl git unzip gh lazygit git-delta eza fzf zoxide
-  pis nvim tmux starship nvim luarocks nushell starship bat fd
+  pis wget git unzip gh lazygit fzf tar nvim tmux starship luarocks \
+    bat eza zoxide
 
   has_cmd trash || pi trash-cli
   has_cmd rg || pi ripgrep
+  has_cmd delta || pi git-delta
+
+  cmd_check wget git unzip gh lazygit delta fzf tar nvim tmux starship luarocks \
+    bat eza zoxide
 }
 
 dotfiles_install() {
-  slog "Cloning dotfiles to $DOT_DIR"
+  slog "Cloning dotfiles to $MDF_DIR"
 
-  dir_exists "$DOT_DIR" || git clone https://github.com/pervezfunctor/mdf.git "${DOT_DIR}"
+  dir_exists "$MDF_DIR" || git clone https://github.com/pervezfunctor/mdf.git "${MDF_DIR}"
 
-  dir_exists "$DOT_DIR" || err_exit "Failed to clone dotfiles repository. Quitting."
+  dir_exists "$MDF_DIR" || err_exit "Failed to clone dotfiles repository. Quitting."
 }
 
-bash_boxstall() {
-  grep -q 'source .*mdf/share/bashrc' ~/.bashrc && return 0
+shell_install() {
+  slog "Configuring shell"
+  # shellcheck disable=SC2016
+  if ! grep -q 'source "${MDF_DIR}/shellrc"' ~/.bashrc 2>/dev/null; then
+    echo "export MDF_DIR=${MDF_DIR}" >>~/.bashrc
+    echo 'source "${MDF_DIR}/shellrc"' >>~/.bashrc
+  fi
 
-  slog "Configuring bash"
-  {
-    echo "export DOT_DIR=\"$DOT_DIR\""
-    # shellcheck disable=SC2016
-    echo 'source "${DOT_DIR}/bashrc"'
-  } >>~/.bashrc
+  if ! grep -q 'source "${MDF_DIR}/shellrc"' ~/.zshrc 2>/dev/null; then
+    touch ~/.zshrc
+    echo "export MDF_DIR=${MDF_DIR}" >>~/.zshrc
+    echo 'source "${MDF_DIR}/shellrc"' >>~/.zshrc
+  fi
 }
 
-zsh_boxstall() {
-  grep -q 'source .*mdf/share/zshrc' ~/.zshrc && return 0
-  slog "Configuring bash"
-
-  {
-    echo "export DOT_DIR=\"$DOT_DIR\""
-    # shellcheck disable=SC2016
-    echo 'source "${DOT_DIR}/zshrc"'
-  } >>~/.bashrc
-}
-
-nvim_boxstall() {
+nvim_install() {
   dir_exists "$XDG_CONFIG_HOME"/nvim && return 0
 
   slog "Configuring nvim with nvim kickstart"
-  git clone https://github.com/nvim-lua/kickstart.nvim.git "$XDG_CONFIG_HOME"/nvim
+
+  smd "$XDG_CONFIG_HOME"/nvim
+  wget -nv https://raw.githubusercontent.com/nvim-lua/kickstart.nvim/master/init.lua -O "$XDG_CONFIG_HOME"/nvim/init.lua
   dir_exists "$XDG_CONFIG_HOME"/nvim || warn "nvim configuration failed"
 }
 
-tmux_boxstall() {
+tmux_install() {
   file_exists ~/.config/tmux/tmux.conf && return 0
-
-  ln -s "$DOT_DIR/tmux.conf" ~/.config/tmux/tmux.conf
+  smd ~/.config/tmux
+  ln -s "$MDF_DIR/tmux.conf" ~/.config/tmux/tmux.conf
 }
 
-jetbrains_nerd_font_install() {
+font_install() {
   file_exists ~/.local/share/fonts/JetBrainsMonoNLNerdFontPropo-Regular.ttf && return 0
 
   slog "Installing JetBrains Mono Nerd Font"
@@ -141,36 +143,19 @@ jetbrains_nerd_font_install() {
   unzip -qq -d /tmp/jetbrains-mono -o /tmp/jetbrains-mono.zip
   cp /tmp/jetbrains-mono/*.ttf ~/.local/share/fonts
   trash /tmp/jetbrains-mono/tmp/jetbrains-mono.zip
+  fc-cache -f -v
 }
 
 ptyxis_install() {
-  if has_cmd flatpak; then
-    slog "Adding flathub remote"
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --user
-  else
-    warn "flatpak not installed! skipping ptyxis installation."
-    return 1
-  fi
+  has_cmd flatpak || return 1
+
+  slog "Adding flathub remote"
+  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --user
 
   slog "Installing Ptyxis"
   fpi app.devsuite.Ptyxis
-}
 
-docker_install() {
-  if ! has_cmd docker; then
-    slog "Installing docker..."
-
-    frm /tmp/get-docker.sh
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-    sudo sh /tmp/get-docker.sh
-    frm /tmp/get-docker.sh
-  fi
-
-  sudo groupadd docker
-  sudo usermod -aG docker "$USER"
-
-  sudo systemctl --now enable docker
-  sudo systemctl --now enable containerd
+  font_install
 }
 
 distrobox_install() {
@@ -183,29 +168,26 @@ distrobox_install() {
 }
 
 main() {
+  export PATH="$HOME/.pixi/bin:$PATH"
+
   has_cmd curl || err_exit "curl not found. Install curl and run this script again."
+  is_linux || err_exit "This script only works on Linux. Quitting."
 
   pixi_install
-  pixi_shell_slim_install
+  shell_tools_install
 
   has_cmd git || err_exit "git not installed. Quitting."
 
   dotfiles_install
+  shell_install
 
-  # remove any lines you don't want
-
-  bash_boxstall
-  zsh_boxstall
-  tmux_boxstall
-  nvim_boxstall
-
-  docker_install
-
-  is_desktop && return 0
-
-  jetbrains_nerd_font_install
-  distrobox_install
-  ptyxis_install
+  for arg in "$@"; do
+    if has_cmd "${arg}_install"; then
+      "${arg}_install"
+    else
+      warn "Unknown argument: $arg"
+    fi
+  done
 }
 
-main
+main "$@"
