@@ -58,11 +58,11 @@ fpi() {
 }
 
 pixi_install() {
-  has_cmd ~/.pixi/bin/pixi && return 0
+  has_cmd pixi && return 0
 
   slog "Installing pixi"
   curl -fsSL https://pixi.sh/install.sh | bash
-  has_cmd ~/.pixi/bin/pixi || warn "pixi not installed"
+  has_cmd pixi || err_exit "Unable to install pixi. Quitting."
 }
 
 pi() {
@@ -82,15 +82,13 @@ pis() {
 shell_tools_install() {
   slog "Installing essential packages with pixi"
 
-  pis wget git unzip gh lazygit fzf tar nvim tmux starship luarocks \
-    bat eza zoxide
+  pis wget git unzip gh fzf tar starship bat eza zoxide
 
   has_cmd trash || pi trash-cli
   has_cmd rg || pi ripgrep
   has_cmd delta || pi git-delta
 
-  cmd_check wget git unzip gh lazygit delta fzf tar nvim tmux starship luarocks \
-    bat eza zoxide
+  cmd_check wget git unzip gh fzf tar starship trash rg delta bat eza zoxide
 }
 
 dotfiles_install() {
@@ -109,6 +107,7 @@ shell_install() {
     echo 'source "${MDF_DIR}/shellrc"' >>~/.bashrc
   fi
 
+  # shellcheck disable=SC2016
   if ! grep -q 'source "${MDF_DIR}/shellrc"' ~/.zshrc 2>/dev/null; then
     touch ~/.zshrc
     echo "export MDF_DIR=${MDF_DIR}" >>~/.zshrc
@@ -117,6 +116,9 @@ shell_install() {
 }
 
 nvim_install() {
+  slog "Installing nvim"
+  pis nvim lazygit luarocks
+
   dir_exists "$XDG_CONFIG_HOME"/nvim && return 0
 
   slog "Configuring nvim with nvim kickstart"
@@ -127,7 +129,11 @@ nvim_install() {
 }
 
 tmux_install() {
+  slog "Installing tmux"
+  pis tmux
   file_exists ~/.config/tmux/tmux.conf && return 0
+
+  slog "Configuring tmux"
   smd ~/.config/tmux
   ln -s "$MDF_DIR/tmux.conf" ~/.config/tmux/tmux.conf
 }

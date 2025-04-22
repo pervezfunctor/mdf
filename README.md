@@ -4,6 +4,7 @@ Setup your `linux` pc, virtual machine(kvm/multipass/vmware/virtualbox/incus) or
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pervezfunctor/mdf/main/setup > setup
+wget https://raw.githubusercontent.com/pervezfunctor/mdf/main/setup -O setup
 bash setup tmux nvim distrobox ptyxis # pick any of these
 ```
 
